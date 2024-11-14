@@ -43,19 +43,19 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
     session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
     # for url in restaurant_urls:
-    url = "https://www.ozmall.co.jp/restaurant/3288/review/"
+    URL = "https://www.ozmall.co.jp/restaurant/3288/review/"
     try:
-        print(f"Processing restaurant URL: {url}")
+        print(f"Processing restaurant URL: {URL}")
         # ページ番号の初期化
         PAGE_NO = 1
         REVIEW_COUNT = 0
         while True:
             # ページURLの構築
             if PAGE_NO == 1:
-                PAGE_URL = url  # 最初のページは基本URL
+                PAGE_URL = URL  # 最初のページは基本URL
             else:
                 # ページURLに?pageNo=2#resultのように追加
-                PAGE_URL = urljoin(url, f"?pageNo={PAGE_NO}#result")
+                PAGE_URL = urljoin(URL, f"?pageNo={PAGE_NO}#result")
 
             print(f"  Processing page {PAGE_NO}: {PAGE_URL}")
 
@@ -266,5 +266,5 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
             time.sleep(1)
 
     except Exception as e:
-        print(f"Error processing {url}: {e}")
+        print(f"Error processing {URL}: {e}")
         exit()
