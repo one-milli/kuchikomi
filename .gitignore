@@ -1,4 +1,4 @@
-.xlsx
-.csv
-.json
-.html
+*.xlsx
+*.csv
+*.json
+*.html
