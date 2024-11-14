@@ -1,10 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
 import csv
 import time
 import re
-import pandas as pd
 from urllib.parse import urljoin
+import requests
+from bs4 import BeautifulSoup
 
 # レビューを取得したいレストランのURLリスト
 # restaurant_urls = [
@@ -48,29 +47,29 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
     try:
         print(f"Processing restaurant URL: {url}")
         # ページ番号の初期化
-        page_no = 1
-        review_count = 0
+        PAGE_NO = 1
+        REVIEW_COUNT = 0
         while True:
             # ページURLの構築
-            if page_no == 1:
-                page_url = url  # 最初のページは基本URL
+            if PAGE_NO == 1:
+                PAGE_URL = url  # 最初のページは基本URL
             else:
                 # ページURLに?pageNo=2#resultのように追加
-                page_url = urljoin(url, f"?pageNo={page_no}#result")
+                PAGE_URL = urljoin(url, f"?pageNo={PAGE_NO}#result")
 
-            print(f"  Processing page {page_no}: {page_url}")
+            print(f"  Processing page {PAGE_NO}: {PAGE_URL}")
 
             # HTTPリクエストを送信
-            response = session.get(page_url)
+            response = session.get(PAGE_URL)
             if response.status_code != 200:
-                print(f"    Failed to retrieve {page_url}: Status code {response.status_code}")
+                print(f"    Failed to retrieve {PAGE_URL}: Status code {response.status_code}")
                 break  # 次のレストランへ移行
 
             # HTMLを解析
             soup = BeautifulSoup(response.text, "html.parser")
 
             # レストラン名の取得（最初のページのみ）
-            if page_no == 1:
+            if PAGE_NO == 1:
                 restaurant_name_tag = soup.find("div", class_="shop-name")
                 if restaurant_name_tag:
                     h1_tag = restaurant_name_tag.find("h1")
@@ -89,7 +88,7 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
             # 口コミ一覧の取得
             review_lists = soup.find_all("div", class_="review__list")
             if not review_lists:
-                print(f"    No reviews found on {page_url}")
+                print(f"    No reviews found on {PAGE_URL}")
                 break  # レビューがない場合、次のレストランへ
 
             # `review__list` の中から `common-frame` を含まないものを選択
@@ -102,7 +101,7 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                 # 口コミボックスの取得（10件）
                 review_boxes = review_list.find_all("div", class_="review__list--box", limit=10)
                 if not review_boxes:
-                    print(f"    No review boxes found on {page_url}")
+                    print(f"    No review boxes found on {PAGE_URL}")
                     continue  # 次の `review__list` へ
 
                 for review_box in review_boxes:
@@ -112,11 +111,11 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                         user_name_tag = user_info.find("div", class_="review__list--box__user")
                         if user_name_tag:
                             p_tags = user_name_tag.find_all("p")
-                            user_name = p_tags[0].get_text(strip=True) if len(p_tags) > 0 else UNKNOWN
-                            age_gender = p_tags[1].get_text(strip=True) if len(p_tags) > 1 else UNKNOWN
+                            USER_NAME = p_tags[0].get_text(strip=True) if len(p_tags) > 0 else UNKNOWN
+                            AGE_GENDER = p_tags[1].get_text(strip=True) if len(p_tags) > 1 else UNKNOWN
                         else:
-                            user_name = UNKNOWN
-                            age_gender = UNKNOWN
+                            USER_NAME = UNKNOWN
+                            AGE_GENDER = UNKNOWN
 
                         # ユーザー詳細データの取得
                         user_data = user_info.find("dl", class_="review__list--box__user-data")
@@ -128,19 +127,19 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                                 key = dt.get_text(strip=True)
                                 value = dd.get_text(strip=True)
                                 user_data_dict[key] = value
-                            usage_count = user_data_dict.get("利用人数", UNKNOWN)
-                            date = user_data_dict.get("投稿日", UNKNOWN)
-                            purpose = user_data_dict.get("利用目的", UNKNOWN)
+                            USAGE_COUNT = user_data_dict.get("利用人数", UNKNOWN)
+                            DATE = user_data_dict.get("投稿日", UNKNOWN)
+                            PURPOSE = user_data_dict.get("利用目的", UNKNOWN)
                         else:
-                            usage_count = UNKNOWN
-                            date = UNKNOWN
-                            purpose = UNKNOWN
+                            USAGE_COUNT = UNKNOWN
+                            DATE = UNKNOWN
+                            PURPOSE = UNKNOWN
                     else:
-                        user_name = UNKNOWN
-                        age_gender = UNKNOWN
-                        usage_count = UNKNOWN
-                        date = UNKNOWN
-                        purpose = UNKNOWN
+                        USER_NAME = UNKNOWN
+                        AGE_GENDER = UNKNOWN
+                        USAGE_COUNT = UNKNOWN
+                        DATE = UNKNOWN
+                        PURPOSE = UNKNOWN
 
                     # 口コミ詳細の取得
                     review_detail = review_box.find_all("div", class_="review__list--box__cell")
@@ -208,11 +207,11 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                     writer.writerow(
                         {
                             "restaurant_name": restaurant_name,
-                            "user_name": user_name,
-                            "age_gender": age_gender,
-                            "usage_count": usage_count,
-                            "date": date,
-                            "purpose": purpose,
+                            "user_name": USER_NAME,
+                            "age_gender": AGE_GENDER,
+                            "usage_count": USAGE_COUNT,
+                            "date": DATE,
+                            "purpose": PURPOSE,
                             "overall_score": overall_score,
                             "plan_score": plan_score,
                             "atmosphere_score": atmosphere_score,
@@ -225,14 +224,14 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                             "comment_reactions": comment_reactions,
                         }
                     )
-                    review_count += 1
-                    if review_count >= MAX_REVIEWS:
+                    REVIEW_COUNT += 1
+                    if REVIEW_COUNT >= MAX_REVIEWS:
                         break
 
-                if review_count >= MAX_REVIEWS:
+                if REVIEW_COUNT >= MAX_REVIEWS:
                     break
 
-            if review_count >= MAX_REVIEWS:
+            if REVIEW_COUNT >= MAX_REVIEWS:
                 break  # 10件以上のレビューがある場合、次のレストランへ
 
             # ページネーションの確認
@@ -252,8 +251,8 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                             page_numbers.append(page_num)
                     if page_numbers:
                         max_page = max(page_numbers)
-                        if page_no < max_page:
-                            page_no += 1
+                        if PAGE_NO < max_page:
+                            PAGE_NO += 1
                         else:
                             break  # 最後のページに到達
                     else:
