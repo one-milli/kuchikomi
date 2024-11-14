@@ -2,13 +2,19 @@ import requests
 from bs4 import BeautifulSoup
 import csv
 import time
+import re
+import pandas as pd
+from urllib.parse import urljoin
 
 # レビューを取得したいレストランのURLリスト
 # restaurant_urls = [
-#     "https://www.ozmall.com/restaurant1",
-#     "https://www.ozmall.com/restaurant2",
+#     "https://www.ozmall.co.jp/restaurant/3288/review/",
+#     "https://www.ozmall.co.jp/restaurant/3289/review/",
 #     # ... 100店舗分のURLを追加
 # ]
+
+UNKNOWN = "Unknown"
+MAX_REVIEWS = 20
 
 # CSVファイルに保存するための準備
 with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfile:
@@ -33,163 +39,232 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
 
+    # セッションの設定（リトライやヘッダーの統一に役立ちます）
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+
     # for url in restaurant_urls:
     url = "https://www.ozmall.co.jp/restaurant/3288/review/"
     try:
-        # HTTPリクエストを送信
-        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        if response.status_code != 200:
-            print(f"Failed to retrieve {url}: Status code {response.status_code}")
-            exit()
-
-        # HTMLを解析
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # レストラン名の取得
-        restaurant_name_tag = soup.find("div", class_="shop-name")
-        if restaurant_name_tag:
-            h1_tag = restaurant_name_tag.find("h1")
-            if h1_tag:
-                a_tag = h1_tag.find("a")
-                if a_tag:
-                    restaurant_name = a_tag.get_text(strip=True).split("[")[0]  # スパン以降を除去
-                else:
-                    restaurant_name = "Unknown"
+        print(f"Processing restaurant URL: {url}")
+        # ページ番号の初期化
+        page_no = 1
+        review_count = 0
+        while True:
+            # ページURLの構築
+            if page_no == 1:
+                page_url = url  # 最初のページは基本URL
             else:
-                restaurant_name = "Unknown"
-        else:
-            restaurant_name = "Unknown"
+                # ページURLに?pageNo=2#resultのように追加
+                page_url = urljoin(url, f"?pageNo={page_no}#result")
 
-        # 口コミ一覧の取得
-        review_list = soup.find("div", class_="review__list")
-        if not review_list:
-            print(f"No reviews found for {url}")
-            exit()
+            print(f"  Processing page {page_no}: {page_url}")
 
-        # 口コミボックスの取得（10件）
-        review_boxes = review_list.find_all("div", class_="review__list--box", limit=10)
+            # HTTPリクエストを送信
+            response = session.get(page_url)
+            if response.status_code != 200:
+                print(f"    Failed to retrieve {page_url}: Status code {response.status_code}")
+                break  # 次のレストランへ移行
 
-        for review_box in review_boxes:
-            # ユーザー情報の取得
-            user_info = review_box.find("div", class_="review__list--box__cell")
-            if user_info:
-                user_name_tag = user_info.find("div", class_="review__list--box__user")
-                if user_name_tag:
-                    p_tags = user_name_tag.find_all("p")
-                    user_name = p_tags[0].get_text(strip=True) if len(p_tags) > 0 else "Unknown"
-                    age_gender = p_tags[1].get_text(strip=True) if len(p_tags) > 1 else "Unknown"
+            # HTMLを解析
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # レストラン名の取得（最初のページのみ）
+            if page_no == 1:
+                restaurant_name_tag = soup.find("div", class_="shop-name")
+                if restaurant_name_tag:
+                    h1_tag = restaurant_name_tag.find("h1")
+                    if h1_tag:
+                        a_tag = h1_tag.find("a")
+                        if a_tag:
+                            # レストラン名の抽出（スパン以降を除去）
+                            restaurant_name = a_tag.get_text(strip=True).split("[")[0]
+                        else:
+                            restaurant_name = UNKNOWN
+                    else:
+                        restaurant_name = UNKNOWN
                 else:
-                    user_name = "Unknown"
-                    age_gender = "Unknown"
+                    restaurant_name = UNKNOWN
 
-                # ユーザー詳細データの取得
-                user_data = user_info.find("dl", class_="review__list--box__user-data")
-                if user_data:
-                    dt_tags = user_data.find_all("dt")
-                    dd_tags = user_data.find_all("dd")
-                    user_data_dict = {}
-                    for dt, dd in zip(dt_tags, dd_tags):
-                        key = dt.get_text(strip=True)
-                        value = dd.get_text(strip=True)
-                        user_data_dict[key] = value
-                    usage_count = user_data_dict.get("利用人数", "Unknown")
-                    date = user_data_dict.get("投稿日", "Unknown")
-                    purpose = user_data_dict.get("利用目的", "Unknown")
+            # 口コミ一覧の取得
+            review_lists = soup.find_all("div", class_="review__list")
+            if not review_lists:
+                print(f"    No reviews found on {page_url}")
+                break  # レビューがない場合、次のレストランへ
+
+            # `review__list` の中から `common-frame` を含まないものを選択
+            for review_list in review_lists:
+                classes = review_list.get("class", [])
+                if "common-frame" in classes:
+                    # この `review__list` は無視
+                    continue
+                # ここからが対象の `review__list`
+                # 口コミボックスの取得（10件）
+                review_boxes = review_list.find_all("div", class_="review__list--box", limit=10)
+                if not review_boxes:
+                    print(f"    No review boxes found on {page_url}")
+                    continue  # 次の `review__list` へ
+
+                for review_box in review_boxes:
+                    # ユーザー情報の取得
+                    user_info = review_box.find("div", class_="review__list--box__cell")
+                    if user_info:
+                        user_name_tag = user_info.find("div", class_="review__list--box__user")
+                        if user_name_tag:
+                            p_tags = user_name_tag.find_all("p")
+                            user_name = p_tags[0].get_text(strip=True) if len(p_tags) > 0 else UNKNOWN
+                            age_gender = p_tags[1].get_text(strip=True) if len(p_tags) > 1 else UNKNOWN
+                        else:
+                            user_name = UNKNOWN
+                            age_gender = UNKNOWN
+
+                        # ユーザー詳細データの取得
+                        user_data = user_info.find("dl", class_="review__list--box__user-data")
+                        if user_data:
+                            dt_tags = user_data.find_all("dt")
+                            dd_tags = user_data.find_all("dd")
+                            user_data_dict = {}
+                            for dt, dd in zip(dt_tags, dd_tags):
+                                key = dt.get_text(strip=True)
+                                value = dd.get_text(strip=True)
+                                user_data_dict[key] = value
+                            usage_count = user_data_dict.get("利用人数", UNKNOWN)
+                            date = user_data_dict.get("投稿日", UNKNOWN)
+                            purpose = user_data_dict.get("利用目的", UNKNOWN)
+                        else:
+                            usage_count = UNKNOWN
+                            date = UNKNOWN
+                            purpose = UNKNOWN
+                    else:
+                        user_name = UNKNOWN
+                        age_gender = UNKNOWN
+                        usage_count = UNKNOWN
+                        date = UNKNOWN
+                        purpose = UNKNOWN
+
+                    # 口コミ詳細の取得
+                    review_detail = review_box.find_all("div", class_="review__list--box__cell")
+                    if len(review_detail) < 2:
+                        # 期待されるセル数が不足している場合
+                        continue
+
+                    # 口コミのスコア部分
+                    score_section = review_detail[1].find("div", class_="review__list--box__score")
+                    if score_section:
+                        # 総合スコアの取得
+                        total_score_section = score_section.find("dl", class_="review__list--box__score--total")
+                        if total_score_section:
+                            overall_score = total_score_section.find("span", class_="review-totalscore").get_text(
+                                strip=True
+                            )
+                        else:
+                            overall_score = UNKNOWN
+
+                        # 各カテゴリーのスコア取得
+                        category_scores = score_section.find_all("dl", class_="review__list--box__score--categoryScore")
+                        scores = {}
+                        for category in category_scores:
+                            dt = category.find("dt").get_text(strip=True)
+                            dd = category.find("dd", class_="score").get_text(strip=True)
+                            scores[dt] = dd
+                        plan_score = scores.get("プラン", UNKNOWN)
+                        atmosphere_score = scores.get("雰囲気", UNKNOWN)
+                        food_score = scores.get("料理", UNKNOWN)
+                        cost_performance_score = scores.get("コスパ", UNKNOWN)
+                        service_score = scores.get("サービス", UNKNOWN)
+                    else:
+                        overall_score = UNKNOWN
+                        plan_score = UNKNOWN
+                        atmosphere_score = UNKNOWN
+                        food_score = UNKNOWN
+                        cost_performance_score = UNKNOWN
+                        service_score = UNKNOWN
+
+                    # 利用プラン情報の取得
+                    plan_section = review_detail[1].find("div", class_="review__list--box__plan--text")
+                    if plan_section:
+                        plan_title_tag = plan_section.find("p", class_="review__list--box__plan--title")
+                        plan_menu_tag = plan_section.find("p", class_="review__list--box__plan--menu")
+                        plan_menu = plan_menu_tag.get_text(strip=True) if plan_menu_tag else UNKNOWN
+                    else:
+                        plan_menu = UNKNOWN
+
+                    # コメントの取得
+                    comments = review_detail[1].find_all("dl", class_="review__list--box__comment")
+                    comment_food_drink = UNKNOWN
+                    comment_atmosphere_service = UNKNOWN
+                    comment_reactions = UNKNOWN
+                    for comment in comments:
+                        heading = comment.find("dt", class_="review__list--box__comment--heading").get_text(strip=True)
+                        content = comment.find("dd").get_text(strip=True)
+                        if heading == "食事やドリンクについて":
+                            comment_food_drink = content
+                        elif heading == "店の雰囲気やサービスについて":
+                            comment_atmosphere_service = content
+                        elif heading == "一緒に行った相手の反応について":
+                            comment_reactions = content
+
+                    # データの書き込み
+                    writer.writerow(
+                        {
+                            "restaurant_name": restaurant_name,
+                            "user_name": user_name,
+                            "age_gender": age_gender,
+                            "usage_count": usage_count,
+                            "date": date,
+                            "purpose": purpose,
+                            "overall_score": overall_score,
+                            "plan_score": plan_score,
+                            "atmosphere_score": atmosphere_score,
+                            "food_score": food_score,
+                            "cost_performance_score": cost_performance_score,
+                            "service_score": service_score,
+                            "plan_menu": plan_menu,
+                            "comment_food_drink": comment_food_drink,
+                            "comment_atmosphere_service": comment_atmosphere_service,
+                            "comment_reactions": comment_reactions,
+                        }
+                    )
+                    review_count += 1
+                    if review_count >= MAX_REVIEWS:
+                        break
+
+                if review_count >= MAX_REVIEWS:
+                    break
+
+            if review_count >= MAX_REVIEWS:
+                break  # 10件以上のレビューがある場合、次のレストランへ
+
+            # ページネーションの確認
+            pager = soup.find("div", class_="pager")
+            if pager:
+                pager_count = pager.find("ul", class_="pager__count")
+                if pager_count:
+                    # 全てのページリンクを取得
+                    page_links = pager_count.find_all("a")
+                    page_numbers = []
+                    for link in page_links:
+                        href = link.get("href", "")
+                        # 正規表現でpageNoの値を抽出
+                        match = re.search(r"pageNo=(\d+)", href)
+                        if match:
+                            page_num = int(match.group(1))
+                            page_numbers.append(page_num)
+                    if page_numbers:
+                        max_page = max(page_numbers)
+                        if page_no < max_page:
+                            page_no += 1
+                        else:
+                            break  # 最後のページに到達
+                    else:
+                        break  # ページリンクがない場合
                 else:
-                    usage_count = "Unknown"
-                    date = "Unknown"
-                    purpose = "Unknown"
+                    break  # pager__countがない場合
             else:
-                user_name = "Unknown"
-                age_gender = "Unknown"
-                usage_count = "Unknown"
-                date = "Unknown"
-                purpose = "Unknown"
+                break  # pagerがない場合
 
-            # 口コミ詳細の取得
-            review_detail = review_box.find_all("div", class_="review__list--box__cell")
-            if len(review_detail) < 2:
-                # 期待されるセル数が不足している場合
-                continue
-
-            # 口コミのスコア部分
-            score_section = review_detail[1].find("div", class_="review__list--box__score")
-            if score_section:
-                # 総合スコアの取得
-                total_score_section = score_section.find("dl", class_="review__list--box__score--total")
-                if total_score_section:
-                    overall_score = total_score_section.find("span", class_="review-totalscore").get_text(strip=True)
-                else:
-                    overall_score = "Unknown"
-
-                # 各カテゴリーのスコア取得
-                category_scores = score_section.find_all("dl", class_="review__list--box__score--categoryScore")
-                scores = {}
-                for category in category_scores:
-                    dt = category.find("dt").get_text(strip=True)
-                    dd = category.find("dd", class_="score").get_text(strip=True)
-                    scores[dt] = dd
-                plan_score = scores.get("プラン", "Unknown")
-                atmosphere_score = scores.get("雰囲気", "Unknown")
-                food_score = scores.get("料理", "Unknown")
-                cost_performance_score = scores.get("コスパ", "Unknown")
-                service_score = scores.get("サービス", "Unknown")
-            else:
-                overall_score = "Unknown"
-                plan_score = "Unknown"
-                atmosphere_score = "Unknown"
-                food_score = "Unknown"
-                cost_performance_score = "Unknown"
-                service_score = "Unknown"
-
-            # 利用プラン情報の取得
-            plan_section = review_detail[1].find("div", class_="review__list--box__plan--text")
-            if plan_section:
-                plan_title_tag = plan_section.find("p", class_="review__list--box__plan--title")
-                plan_menu_tag = plan_section.find("p", class_="review__list--box__plan--menu")
-                plan_menu = plan_menu_tag.get_text(strip=True) if plan_menu_tag else "Unknown"
-            else:
-                plan_menu = "Unknown"
-
-            # コメントの取得
-            comments = review_detail[1].find_all("dl", class_="review__list--box__comment")
-            comment_food_drink = "Unknown"
-            comment_atmosphere_service = "Unknown"
-            comment_reactions = "Unknown"
-            for comment in comments:
-                heading = comment.find("dt", class_="review__list--box__comment--heading").get_text(strip=True)
-                content = comment.find("dd").get_text(strip=True)
-                if heading == "食事やドリンクについて":
-                    comment_food_drink = content
-                elif heading == "店の雰囲気やサービスについて":
-                    comment_atmosphere_service = content
-                elif heading == "一緒に行った相手の反応について":
-                    comment_reactions = content
-
-            # データの書き込み
-            writer.writerow(
-                {
-                    "restaurant_name": restaurant_name,
-                    "user_name": user_name,
-                    "age_gender": age_gender,
-                    "usage_count": usage_count,
-                    "date": date,
-                    "purpose": purpose,
-                    "overall_score": overall_score,
-                    "plan_score": plan_score,
-                    "atmosphere_score": atmosphere_score,
-                    "food_score": food_score,
-                    "cost_performance_score": cost_performance_score,
-                    "service_score": service_score,
-                    "plan_menu": plan_menu,
-                    "comment_food_drink": comment_food_drink,
-                    "comment_atmosphere_service": comment_atmosphere_service,
-                    "comment_reactions": comment_reactions,
-                }
-            )
-
-        # サーバーへの負荷を避けるために待機
-        time.sleep(1)
+            # サーバーへの負荷を避けるために待機
+            time.sleep(1)
 
     except Exception as e:
         print(f"Error processing {url}: {e}")
