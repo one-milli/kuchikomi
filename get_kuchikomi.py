@@ -77,13 +77,13 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                         a_tag = h1_tag.find("a")
                         if a_tag:
                             # レストラン名の抽出（スパン以降を除去）
-                            restaurant_name = a_tag.get_text(strip=True).split("[")[0]
+                            RESTAURANT_NAME = a_tag.get_text(strip=True).split("[")[0]
                         else:
-                            restaurant_name = UNKNOWN
+                            RESTAURANT_NAME = UNKNOWN
                     else:
-                        restaurant_name = UNKNOWN
+                        RESTAURANT_NAME = UNKNOWN
                 else:
-                    restaurant_name = UNKNOWN
+                    RESTAURANT_NAME = UNKNOWN
 
             # 口コミ一覧の取得
             review_lists = soup.find_all("div", class_="review__list")
@@ -153,11 +153,11 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                         # 総合スコアの取得
                         total_score_section = score_section.find("dl", class_="review__list--box__score--total")
                         if total_score_section:
-                            overall_score = total_score_section.find("span", class_="review-totalscore").get_text(
+                            OVERALL_SCORE = total_score_section.find("span", class_="review-totalscore").get_text(
                                 strip=True
                             )
                         else:
-                            overall_score = UNKNOWN
+                            OVERALL_SCORE = UNKNOWN
 
                         # 各カテゴリーのスコア取得
                         category_scores = score_section.find_all("dl", class_="review__list--box__score--categoryScore")
@@ -166,62 +166,62 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                             dt = category.find("dt").get_text(strip=True)
                             dd = category.find("dd", class_="score").get_text(strip=True)
                             scores[dt] = dd
-                        plan_score = scores.get("プラン", UNKNOWN)
-                        atmosphere_score = scores.get("雰囲気", UNKNOWN)
-                        food_score = scores.get("料理", UNKNOWN)
-                        cost_performance_score = scores.get("コスパ", UNKNOWN)
-                        service_score = scores.get("サービス", UNKNOWN)
+                        PLAN_SCORE = scores.get("プラン", UNKNOWN)
+                        ATMOSPHERE_SCORE = scores.get("雰囲気", UNKNOWN)
+                        FOOD_SCORE = scores.get("料理", UNKNOWN)
+                        COST_PERFORMANCE_SCORE = scores.get("コスパ", UNKNOWN)
+                        SERVICE_SCORE = scores.get("サービス", UNKNOWN)
                     else:
-                        overall_score = UNKNOWN
-                        plan_score = UNKNOWN
-                        atmosphere_score = UNKNOWN
-                        food_score = UNKNOWN
-                        cost_performance_score = UNKNOWN
-                        service_score = UNKNOWN
+                        OVERALL_SCORE = UNKNOWN
+                        PLAN_SCORE = UNKNOWN
+                        ATMOSPHERE_SCORE = UNKNOWN
+                        FOOD_SCORE = UNKNOWN
+                        COST_PERFORMANCE_SCORE = UNKNOWN
+                        SERVICE_SCORE = UNKNOWN
 
                     # 利用プラン情報の取得
                     plan_section = review_detail[1].find("div", class_="review__list--box__plan--text")
                     if plan_section:
                         plan_title_tag = plan_section.find("p", class_="review__list--box__plan--title")
                         plan_menu_tag = plan_section.find("p", class_="review__list--box__plan--menu")
-                        plan_menu = plan_menu_tag.get_text(strip=True) if plan_menu_tag else UNKNOWN
+                        PLAN_MENU = plan_menu_tag.get_text(strip=True) if plan_menu_tag else UNKNOWN
                     else:
-                        plan_menu = UNKNOWN
+                        PLAN_MENU = UNKNOWN
 
                     # コメントの取得
                     comments = review_detail[1].find_all("dl", class_="review__list--box__comment")
-                    comment_food_drink = UNKNOWN
-                    comment_atmosphere_service = UNKNOWN
-                    comment_reactions = UNKNOWN
+                    COMMENT_FOOD_DRINK = UNKNOWN
+                    COMMENT_ATMOSPHERE_SERVICE = UNKNOWN
+                    COMMENT_REACTIONS = UNKNOWN
                     for comment in comments:
                         heading = comment.find("dt", class_="review__list--box__comment--heading").get_text(strip=True)
                         content = comment.find("dd").get_text(strip=True)
                         if heading == "食事やドリンクについて":
-                            comment_food_drink = content
+                            COMMENT_FOOD_DRINK = content
                         elif heading == "店の雰囲気やサービスについて":
-                            comment_atmosphere_service = content
+                            COMMENT_ATMOSPHERE_SERVICE = content
                         elif heading == "一緒に行った相手の反応について":
-                            comment_reactions = content
+                            COMMENT_REACTIONS = content
 
                     # データの書き込み
                     writer.writerow(
                         {
-                            "restaurant_name": restaurant_name,
+                            "restaurant_name": RESTAURANT_NAME,
                             "user_name": USER_NAME,
                             "age_gender": AGE_GENDER,
                             "usage_count": USAGE_COUNT,
                             "date": DATE,
                             "purpose": PURPOSE,
-                            "overall_score": overall_score,
-                            "plan_score": plan_score,
-                            "atmosphere_score": atmosphere_score,
-                            "food_score": food_score,
-                            "cost_performance_score": cost_performance_score,
-                            "service_score": service_score,
-                            "plan_menu": plan_menu,
-                            "comment_food_drink": comment_food_drink,
-                            "comment_atmosphere_service": comment_atmosphere_service,
-                            "comment_reactions": comment_reactions,
+                            "overall_score": OVERALL_SCORE,
+                            "plan_score": PLAN_SCORE,
+                            "atmosphere_score": ATMOSPHERE_SCORE,
+                            "food_score": FOOD_SCORE,
+                            "cost_performance_score": COST_PERFORMANCE_SCORE,
+                            "service_score": SERVICE_SCORE,
+                            "plan_menu": PLAN_MENU,
+                            "comment_food_drink": COMMENT_FOOD_DRINK,
+                            "comment_atmosphere_service": COMMENT_ATMOSPHERE_SERVICE,
+                            "comment_reactions": COMMENT_REACTIONS,
                         }
                     )
                     REVIEW_COUNT += 1
