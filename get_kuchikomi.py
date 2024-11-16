@@ -6,10 +6,10 @@ import requests
 from bs4 import BeautifulSoup
 
 UNKNOWN = "Unknown"
-MAX_REVIEWS = 15
+MAX_REVIEWS = 100
 
 # 口コミを取得したいレストランのURLリストをファイルから読み込む
-with open("restaurant_urls_partial.csv", "r", encoding="utf-8-sig") as url_file:
+with open("restaurant_urls.csv", "r", encoding="utf-8-sig") as url_file:
     restaurant_urls = [line.strip().replace("/afternoontea/", "/review/") for line in url_file if line.strip()]
 
 # CSVファイルに保存するための準備
@@ -178,6 +178,9 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                             if plan_section and plan_section.find("p", class_="review__list--box__plan--menu")
                             else UNKNOWN
                         )
+                        # "Afternoon", "アフタヌーン"が含まれるものを抽出
+                        if "Afternoon" not in PLAN_MENU and "アフタヌーン" not in PLAN_MENU:
+                            continue
 
                         # コメントの取得
                         comments = review_detail[1].find_all("dl", class_="review__list--box__comment")
@@ -193,6 +196,8 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                                 COMMENT_ATMOSPHERE_SERVICE = content
                             elif heading == "一緒に行った相手の反応について":
                                 COMMENT_REACTIONS = content
+                        if COMMENT_FOOD_DRINK == UNKNOWN or COMMENT_ATMOSPHERE_SERVICE == UNKNOWN:
+                            continue
 
                         # データの書き込み
                         writer.writerow(
@@ -246,7 +251,7 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                     break  # pagerがない場合
 
                 # サーバーへの負荷を避けるために待機
-                time.sleep(1)
+                time.sleep(2)
 
         except Exception as e:
             print(f"Error processing {URL}: {e}")
