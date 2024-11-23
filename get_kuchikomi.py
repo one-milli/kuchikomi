@@ -1,6 +1,7 @@
 import csv
 import time
 import re
+from datetime import datetime
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
@@ -45,7 +46,9 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
             # ページ番号の初期化
             PAGE_NO = 1
             REVIEW_COUNT = 0
-            while True:
+            RESTAURANT_NAME = UNKNOWN
+            GOTO_NEXT_RESTAURANT = False
+            while not GOTO_NEXT_RESTAURANT:
                 # ページURLの構築
                 if PAGE_NO == 1:
                     PAGE_URL = URL  # 最初のページは基本URL
@@ -133,6 +136,15 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                             USAGE_COUNT = UNKNOWN
                             DATE = UNKNOWN
                             PURPOSE = UNKNOWN
+
+                        # 口コミは新しい順に取得される
+                        # 取得したい口コミは2023年10月から2024年10月までのもの
+                        date_obj = datetime.strptime(DATE, "%Y/%m/%d")
+                        if date_obj > datetime(2024, 10, 31):
+                            continue
+                        if date_obj < datetime(2023, 11, 1):
+                            GOTO_NEXT_RESTAURANT = True
+                            break
 
                         # 口コミ詳細の取得
                         review_detail = review_box.find_all("div", class_="review__list--box__cell")
@@ -222,13 +234,11 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                         )
                         REVIEW_COUNT += 1
                         if REVIEW_COUNT >= MAX_REVIEWS:
+                            GOTO_NEXT_RESTAURANT = True
                             break
 
-                    if REVIEW_COUNT >= MAX_REVIEWS:
+                    if GOTO_NEXT_RESTAURANT:
                         break
-
-                if REVIEW_COUNT >= MAX_REVIEWS:
-                    break  # 10件以上のレビューがある場合、次のレストランへ
 
                 # ページネーションの確認
                 pager = soup.find("div", class_="pager")
@@ -244,15 +254,22 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                         if page_numbers and PAGE_NO < max(page_numbers):
                             PAGE_NO += 1
                         else:
-                            break  # 最後のページに到達
+                            GOTO_NEXT_RESTAURANT = True  # 最後のページに到達
                     else:
-                        break  # pager__countがない場合
+                        GOTO_NEXT_RESTAURANT = True  # pager__countがない場合
                 else:
-                    break  # pagerがない場合
+                    GOTO_NEXT_RESTAURANT = True  # pagerがない場合
+
+                # 100ページ以上の場合、終了
+                if PAGE_NO > 100:
+                    GOTO_NEXT_RESTAURANT = True
 
                 # サーバーへの負荷を避けるために待機
-                time.sleep(2)
+                time.sleep(1.5)
 
-        except Exception as e:
-            print(f"Error processing {URL}: {e}")
+        except requests.RequestException as e:
+            print(f"Request error processing {URL}: {e}")
+            continue
+        except csv.Error as e:
+            print(f"CSV error processing {URL}: {e}")
             continue
