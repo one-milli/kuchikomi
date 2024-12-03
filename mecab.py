@@ -2,7 +2,7 @@ import re
 import pandas as pd
 import MeCab
 import ipadic
-from collections import Counter
+from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 from wordcloud import WordCloud
@@ -16,7 +16,7 @@ except Exception as e:
     exit()
 
 col_name = "comment_food_drink"
-# col_name = "comment_atmosphere_service"
+#col_name = "comment_atmosphere_service"
 
 if col_name in df.columns:
     print(f"'{col_name}'カラムが見つかりました。")
@@ -27,7 +27,7 @@ else:
     exit()
 
 try:
-    mecab = MeCab.Tagger(ipadic.MECAB_ARGS)
+    mecab = MeCab.Tagger('-d "C:/Program Files (x86)/MeCab/dic/ipadic" -u "C:/Program Files (x86)/MeCab/dic/NEologd/NEologd.20200910-u.dic"')
     print("MeCabの初期化に成功しました。")
 except Exception as e:
     print("MeCabの初期化中にエラーが発生しました:", e)
@@ -59,6 +59,7 @@ stop_words = [
     "もの",
     "なる",
     "ある",
+    "どれ"
 ]
 
 
@@ -90,6 +91,10 @@ def tokenize(text):
             base_form = (
                 features[6] if len(features) > 6 else surface
             )  # 基本形が存在する場合は取得、なければ表層形を使用
+            if base_form=="スイーツ!" or base_form=="SweetS":
+                base_form="スイーツ"
+            if base_form=="Afternoon tea":
+                base_form="アフタヌーンティー"
 
             if pos in ["名詞", "形容詞", "副詞"]:
                 if base_form not in stop_words:
@@ -101,7 +106,7 @@ def tokenize(text):
 
 
 # 4. 全コメントから単語を抽出
-MAX_NUM = 50
+MAX_NUM = 100
 all_tokens = []
 for idx, comment in enumerate(df[col_name]):
     if isinstance(comment, str):
@@ -111,12 +116,10 @@ for idx, comment in enumerate(df[col_name]):
         print(f"コメントが文字列ではありません: インデックス {idx}, 内容: {comment}")
 
 print(f"\n全コメントから抽出された総単語数: {len(all_tokens)}")
-print(f"最初の{MAX_NUM}単語を表示:", all_tokens[:MAX_NUM])
 
 # 5. 単語の頻度をカウント
 word_counts = Counter(all_tokens)
 print(f"ユニークな単語数: {len(word_counts)}")
-print(f"上位{MAX_NUM}頻出単語:", word_counts.most_common(MAX_NUM))
 
 # 6. 頻出単語が存在しない場合の対処
 if not word_counts:
@@ -124,7 +127,28 @@ if not word_counts:
     exit()
 
 # 7. 結果の可視化（棒グラフとワードクラウド）
-top_20 = word_counts.most_common(MAX_NUM)
+top_20 = word_counts.most_common(MAX_NUM)[0:20]
+top_words = [word for word, count in top_20]
+
+# 共起関係を保存する辞書
+co_occurrence = defaultdict(Counter)
+
+for comment in df[col_name]:
+    if isinstance(comment, str):
+        tokens = tokenize(comment)
+        tokens_set = set(tokens)  # 重複を避けるためにセット化
+        for word in top_words:
+            if word in tokens_set:
+                for co_word in tokens_set:
+                    if co_word != word:
+                        co_occurrence[word][co_word] += 1
+
+# 共起結果の表示
+for word, counter in co_occurrence.items():
+    print(f"'{word}' に関連する頻出単語:")
+    for co_word, count in counter.most_common(10):
+        print(f"  {co_word}: {count}")
+    print()
 
 font_path = "ipaexg.ttf"
 font_prop = fm.FontProperties(fname=font_path)
@@ -140,12 +164,17 @@ plt.yticks(fontproperties=font_prop)
 plt.show()
 
 # ワードクラウドの作成
-word_freq = dict(word_counts.most_common(100))
-wordcloud = WordCloud(font_path=font_path, background_color="white", width=800, height=600).generate_from_frequencies(
-    word_freq
-)
+# word_freq = dict(word_counts.most_common(100))
+# wordcloud = WordCloud(font_path=font_path, background_color="white", width=800, height=600).generate_from_frequencies(
+    # word_freq
+# )
 
-plt.figure(figsize=(10, 8))
-plt.imshow(wordcloud, interpolation="bilinear")
-plt.axis("off")
-plt.show()
+# plt.figure(figsize=(10, 8))
+# plt.imshow(wordcloud, interpolation="bilinear")
+# plt.axis("off")
+# plt.show()
+
+#parsed = mecab.parse("セイボリーもスイーツもバランスよく、ボリュ ームや種類は十分満足出来ました。看板メニューのザッハトルテは逸品です。")
+#print(parsed)
+
+print(f"すべての単語:", word_counts.most_common(len(word_counts)))
