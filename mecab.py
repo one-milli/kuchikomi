@@ -16,7 +16,7 @@ except Exception as e:
     exit()
 
 col_name = "comment_food_drink"
-#col_name = "comment_atmosphere_service"
+# col_name = "comment_atmosphere_service"
 
 if col_name in df.columns:
     print(f"'{col_name}'カラムが見つかりました。")
@@ -27,7 +27,9 @@ else:
     exit()
 
 try:
-    mecab = MeCab.Tagger('-d "C:/Program Files (x86)/MeCab/dic/ipadic" -u "C:/Program Files (x86)/MeCab/dic/NEologd/NEologd.20200910-u.dic"')
+    mecab = MeCab.Tagger(
+        '-d "C:/Program Files (x86)/MeCab/dic/ipadic" -u "C:/Program Files (x86)/MeCab/dic/NEologd/NEologd.20200910-u.dic"'
+    )
     print("MeCabの初期化に成功しました。")
 except Exception as e:
     print("MeCabの初期化中にエラーが発生しました:", e)
@@ -59,7 +61,7 @@ stop_words = [
     "もの",
     "なる",
     "ある",
-    "どれ"
+    "どれ",
 ]
 
 
@@ -88,13 +90,12 @@ def tokenize(text):
             surface, feature = line.split("\t")[:2]
             features = feature.split(",")
             pos = features[0]  # 品詞
+            pos_sub1 = features[1]  # 品詞細分類1
             base_form = (
-                features[6] if len(features) > 6 else surface
+                features[6] if (len(features) > 6 or pos_sub1 == "固有名詞") else surface
             )  # 基本形が存在する場合は取得、なければ表層形を使用
-            if base_form=="スイーツ!" or base_form=="SweetS":
-                base_form="スイーツ"
-            if base_form=="Afternoon tea":
-                base_form="アフタヌーンティー"
+            if base_form == "Afternoon tea":
+                base_form = "アフタヌーンティー"
 
             if pos in ["名詞", "形容詞", "副詞"]:
                 if base_form not in stop_words:
@@ -166,7 +167,7 @@ plt.show()
 # ワードクラウドの作成
 # word_freq = dict(word_counts.most_common(100))
 # wordcloud = WordCloud(font_path=font_path, background_color="white", width=800, height=600).generate_from_frequencies(
-    # word_freq
+# word_freq
 # )
 
 # plt.figure(figsize=(10, 8))
@@ -174,7 +175,10 @@ plt.show()
 # plt.axis("off")
 # plt.show()
 
-#parsed = mecab.parse("セイボリーもスイーツもバランスよく、ボリュ ームや種類は十分満足出来ました。看板メニューのザッハトルテは逸品です。")
-#print(parsed)
+# comment_test = "セイボリーもスイーツもバランスよく、ボリュームや種類は十分満足出来ました。中島屋の看板メニューのザッハトルテは逸品です。"
+# parsed = mecab.parse(comment_test)
+# print(parsed)
+# tokens = tokenize(comment_test)
+# print(tokens)
 
 print(f"すべての単語:", word_counts.most_common(len(word_counts)))
