@@ -91,9 +91,12 @@ def tokenize(text):
             features = feature.split(",")
             pos = features[0]  # 品詞
             pos_sub1 = features[1]  # 品詞細分類1
-            base_form = (
-                features[6] if (len(features) > 6 or pos_sub1 == "固有名詞") else surface
-            )  # 基本形が存在する場合は取得、なければ表層形を使用
+            if pos_sub1 == "固有名詞":
+                base_form = surface
+            else:
+                base_form = (
+                    features[6] if (len(features) > 6) else surface
+                )  # 基本形が存在する場合は取得、なければ表層形を使用
             if base_form == "Afternoon tea":
                 base_form = "アフタヌーンティー"
 
@@ -175,7 +178,9 @@ plt.show()
 # plt.axis("off")
 # plt.show()
 
-# comment_test = "セイボリーもスイーツもバランスよく、ボリュームや種類は十分満足出来ました。中島屋の看板メニューのザッハトルテは逸品です。"
+# comment_test = (
+#     "セイボリーもスイーツもバランスよく、ボリュームや種類は十分満足出来ました。看板メニューのザッハトルテは逸品です。"
+# )
 # parsed = mecab.parse(comment_test)
 # print(parsed)
 # tokens = tokenize(comment_test)
