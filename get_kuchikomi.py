@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 
 UNKNOWN = "Unknown"
-MAX_REVIEWS = 100
+# MAX_REVIEWS = 100
 
 # 口コミを取得したいレストランのURLリストをファイルから読み込む
 with open("restaurant_urls.csv", "r", encoding="utf-8-sig") as url_file:
@@ -45,7 +45,7 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
             print(f"Processing restaurant URL: {URL}")
             # ページ番号の初期化
             PAGE_NO = 1
-            REVIEW_COUNT = 0
+            # REVIEW_COUNT = 0
             RESTAURANT_NAME = UNKNOWN
             GOTO_NEXT_RESTAURANT = False
             while not GOTO_NEXT_RESTAURANT:
@@ -232,10 +232,10 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                                 "comment_reactions": COMMENT_REACTIONS,
                             }
                         )
-                        REVIEW_COUNT += 1
-                        if REVIEW_COUNT >= MAX_REVIEWS:
-                            GOTO_NEXT_RESTAURANT = True
-                            break
+                        # REVIEW_COUNT += 1
+                        # if REVIEW_COUNT >= MAX_REVIEWS:
+                        #     GOTO_NEXT_RESTAURANT = True
+                        #     break
 
                     if GOTO_NEXT_RESTAURANT:
                         break
@@ -261,11 +261,11 @@ with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfil
                     GOTO_NEXT_RESTAURANT = True  # pagerがない場合
 
                 # 100ページ以上の場合、終了
-                if PAGE_NO > 100:
-                    GOTO_NEXT_RESTAURANT = True
+                # if PAGE_NO > 100:
+                # GOTO_NEXT_RESTAURANT = True
 
                 # サーバーへの負荷を避けるために待機
-                time.sleep(1.5)
+                time.sleep(2.5)
 
         except requests.RequestException as e:
             print(f"Request error processing {URL}: {e}")
