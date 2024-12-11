@@ -10,11 +10,11 @@ UNKNOWN = "Unknown"
 # MAX_REVIEWS = 100
 
 # 口コミを取得したいレストランのURLリストをファイルから読み込む
-with open("restaurant_urls.csv", "r", encoding="utf-8-sig") as url_file:
+with open("worse_restaurant_urls.csv", "r", encoding="utf-8-sig") as url_file:
     restaurant_urls = [line.strip().replace("/afternoontea/", "/review/") for line in url_file if line.strip()]
 
 # CSVファイルに保存するための準備
-with open("ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfile:
+with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfile:
     fieldnames = [
         "restaurant_name",
         "user_name",

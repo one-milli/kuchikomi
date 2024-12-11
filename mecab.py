@@ -9,7 +9,7 @@ from wordcloud import WordCloud
 
 
 try:
-    df = pd.read_csv("ozmall_reviews.csv")
+    df = pd.read_csv("worse_ozmall_reviews.csv")
     print("CSVファイルの読み込みに成功しました。")
 except Exception as e:
     print("CSVファイルの読み込み中にエラーが発生しました:", e)
