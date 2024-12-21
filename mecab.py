@@ -1,11 +1,9 @@
 import re
 import pandas as pd
 import MeCab
-import ipadic
 from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-from wordcloud import WordCloud
 
 
 try:
@@ -65,7 +63,7 @@ stop_words = [
 ]
 
 
-# 3. 前処理関数の定義
+# 前処理関数の定義
 def preprocess(text):
     # 半角スペース、全角スペース、数字、記号を除去
     text = re.sub(r"[0-9０-９]", "", text)
@@ -141,7 +139,7 @@ def sort_key(age_group):
         return (999, 0)  # パターンに合わない場合は最後に配置
 
 
-# 4. 全コメントから単語を抽出
+# 全コメントから単語を抽出
 MAX_NUM = 50
 all_tokens = []
 for idx, comment in enumerate(df[col_name]):
@@ -153,16 +151,16 @@ for idx, comment in enumerate(df[col_name]):
 
 print(f"\n全コメントから抽出された総単語数: {len(all_tokens)}")
 
-# 5. 単語の頻度をカウント
+# 単語の頻度をカウント
 word_counts = Counter(all_tokens)
 print(f"ユニークな単語数: {len(word_counts)}")
 
-# 6. 頻出単語が存在しない場合の対処
+# 頻出単語が存在しない場合の対処
 if not word_counts:
     print("エラー: 単語のカウントが空です。前処理やトークナイズのステップを再確認してください。")
     exit()
 
-# 7. 結果の可視化（棒グラフとワードクラウド）
+# 結果の可視化（棒グラフとワードクラウド）
 top = word_counts.most_common(MAX_NUM)
 top_words = [word for word, count in top]
 
@@ -199,17 +197,6 @@ plt.gca().invert_yaxis()  # 上位が上に来るように
 plt.yticks(fontproperties=font_prop)
 plt.show()
 
-# ワードクラウドの作成
-# word_freq = dict(word_counts.most_common(100))
-# wordcloud = WordCloud(font_path=font_path, background_color="white", width=800, height=600).generate_from_frequencies(
-# word_freq
-# )
-
-# plt.figure(figsize=(10, 8))
-# plt.imshow(wordcloud, interpolation="bilinear")
-# plt.axis("off")
-# plt.show()
-
 # 年代別に頻出単語を集計
 # "age_gender"カラムには年代と性別が含まれている(例: "20代前半（女）")
 if "age_gender" in df.columns:
@@ -222,7 +209,7 @@ else:
     print("エラー: 'age_gender' カラムが見つかりません。")
     exit()
 
-# 6. 年代別に頻出単語を集計
+# 年代別に頻出単語を集計
 age_groups = df["age_group"].unique()
 age_groups = sorted(age_groups, key=sort_key)
 age_word_counts = defaultdict(Counter)
@@ -243,7 +230,7 @@ for age in age_groups:
     age_word_counts[age] = word_counts_age
     print(f"'{age}' の上位10頻出単語: {word_counts_age.most_common(20)}")
 
-# 7. 結果の可視化（年代別の棒グラフ）
+# 結果の可視化（年代別の棒グラフ）
 for age, counter in age_word_counts.items():
     top_n = 20  # 上位10単語を表示
     top_words = counter.most_common(top_n)
@@ -258,4 +245,13 @@ for age, counter in age_word_counts.items():
     plt.show()
 
 print("")
-print(f"すべての単語:", word_counts.most_common(len(word_counts)))
+print("すべての単語の出現頻度を 'word_frequencies.csv' に保存します。")
+# すべての単語を頻度順にソート
+sorted_word_freq = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
+
+# データフレームを作成
+df_word_freq = pd.DataFrame(sorted_word_freq, columns=["word", "frequency"])
+
+# CSVに保存
+df_word_freq.to_csv("word_frequencies.csv", index=False, encoding="utf-8-sig")
+print("保存が完了しました。")
