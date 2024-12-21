@@ -35,7 +35,6 @@ except Exception as e:
 
 # 3. トークナイズ関数の定義とテスト
 stop_words = [
-    "*",
     "の",
     "に",
     "は",
@@ -45,28 +44,16 @@ stop_words = [
     "で",
     "て",
     "と",
-    "する",
-    "ます",
-    "し",
-    "こと",
-    "も",
-    "さ",
-    "ん",
-    "ない",
-    "いる",
-    "れ",
-    "られ",
-    "もの",
-    "なる",
-    "ある",
-    "どれ",
 ]
+
+# 形態素解析結果を保存するリストを初期化
+all_morphs = []
 
 
 # 前処理関数の定義
 def preprocess(text):
     # 半角スペース、全角スペース、数字、記号を除去
-    text = re.sub(r"[0-9０-９]", "", text)
+    # text = re.sub(r"[0-9０-９]", "", text)
     text = re.sub(r"[!-/:-@[-`{-~]", "", text)  # 半角記号
     text = re.sub(r"\s+", "", text)  # 空白の除去
     return text
@@ -98,9 +85,13 @@ def tokenize(text):
             if base_form == "Afternoon tea":
                 base_form = "アフタヌーンティー"
 
-            if pos in ["名詞", "形容詞", "副詞"]:
-                if base_form not in stop_words:
-                    tokens.append(base_form)
+            # if pos in ["名詞", "形容詞", "副詞"]:
+            # if base_form not in stop_words:
+            tokens.append(base_form)
+
+            # 形態素解析結果をリストに追加
+            all_morphs.append({"surface": surface, "feature": feature})
+
         except ValueError as ve:
             print(f"解析エラー行: {line} - {ve}")
 
@@ -150,6 +141,19 @@ for idx, comment in enumerate(df[col_name]):
         print(f"コメントが文字列ではありません: インデックス {idx}, 内容: {comment}")
 
 print(f"\n全コメントから抽出された総単語数: {len(all_tokens)}")
+
+# 形態素解析結果をDataFrameに変換
+morph_df = pd.DataFrame(all_morphs)
+
+# CSVに保存
+morph_csv_filename = "morphological_analysis.csv"
+try:
+    morph_df.to_csv(morph_csv_filename, index=False, encoding="utf-8-sig")
+    print(f"形態素解析結果を '{morph_csv_filename}' に保存しました。")
+except Exception as e:
+    print(f"形態素解析結果の保存中にエラーが発生しました: {e}")
+
+exit()
 
 # 単語の頻度をカウント
 word_counts = Counter(all_tokens)
