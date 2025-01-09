@@ -1,3 +1,4 @@
+import os
 import re
 import pandas as pd
 import MeCab
@@ -6,60 +7,38 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 
-try:
-    df = pd.read_csv("worse_ozmall_reviews.csv")
-    print("CSVファイルの読み込みに成功しました。")
-except Exception as e:
-    print("CSVファイルの読み込み中にエラーが発生しました:", e)
-    exit()
-
-col_name = "comment_food_drink"
-# col_name = "comment_atmosphere_service"
-
-if col_name in df.columns:
-    print(f"'{col_name}'カラムが見つかりました。")
-    print("最初の5件のコメントを表示します:")
-    print(df[col_name].head())
-else:
-    print(f"エラー: '{col_name}'カラムが見つかりません。CSVファイルのカラム名を確認してください。")
-    exit()
-
-try:
-    mecab = MeCab.Tagger(
-        '-d "C:/Program Files (x86)/MeCab/dic/ipadic" -u "C:/Program Files (x86)/MeCab/dic/NEologd/NEologd.20200910-u.dic"'
-    )
-    print("MeCabの初期化に成功しました。")
-except Exception as e:
-    print("MeCabの初期化中にエラーが発生しました:", e)
-    exit()
-
-# 3. トークナイズ関数の定義とテスト
-stop_words = [
-    "の",
-    "に",
-    "は",
-    "を",
-    "た",
-    "が",
-    "で",
-    "て",
-    "と",
-]
-
-# 形態素解析結果を保存するリストを初期化
-all_morphs = []
+# シズルワードリストの読み込み関数
+def load_sizzle_words(file_path, mecab):
+    sizzle_words = []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                word = line.strip()
+                if word:
+                    tokens = tokenize(word, mecab)
+                    if tokens:
+                        sizzle_words.append({"word": word, "tokens": tokens})
+        print(f"シズルワードリストを '{file_path}' から読み込みました。総シズルワード数: {len(sizzle_words)}")
+        # デバッグ用に最初の3つを表示
+        if len(sizzle_words) > 0:
+            print("サンプルシズルワード:", sizzle_words[:3])
+    except Exception as e:
+        print(f"シズルワードリストの読み込み中にエラーが発生しました: {e}")
+        exit()
+    return sizzle_words
 
 
 # 前処理関数の定義
 def preprocess(text):
-    # 半角スペース、全角スペース、数字、記号を除去
-    # text = re.sub(r"[0-9０-９]", "", text)
-    text = re.sub(r"[!-/:-@[-`{-~]", "", text)  # 半角記号
-    text = re.sub(r"\s+", "", text)  # 空白の除去
+    # 半角記号を除去（ただし '%' は除外）
+    text = re.sub(r'[!"#$&\'()*+,\-./:;<=>?@[\\\]^_`{|}~]', "", text)
+    # 空白の除去
+    text = re.sub(r"\s+", "", text)
     return text
 
 
-def tokenize(text):
+# トークナイズ関数の定義
+def tokenize(text, mecab):
     tokens = []
     text = preprocess(text)
     parsed = mecab.parse(text)
@@ -85,12 +64,7 @@ def tokenize(text):
             if base_form == "Afternoon tea":
                 base_form = "アフタヌーンティー"
 
-            # if pos in ["名詞", "形容詞", "副詞"]:
-            # if base_form not in stop_words:
             tokens.append(base_form)
-
-            # 形態素解析結果をリストに追加
-            all_morphs.append({"surface": surface, "feature": feature})
 
         except ValueError as ve:
             print(f"解析エラー行: {line} - {ve}")
@@ -98,60 +72,125 @@ def tokenize(text):
     return tokens
 
 
-# 年代を抽出する関数
-def extract_age_group(age_gender_str):
-    """
-    age_gender_str: 例 "20代前半（女）"
-    戻り値: "20代前半"
-    """
-    match = re.match(r"(\d+代[^\（]+)", age_gender_str)
-    if match:
-        return match.group(1)
+# CSVファイルの読み込み
+def load_reviews(csv_path, required_columns):
+    try:
+        df = pd.read_csv(csv_path)
+        print("CSVファイルの読み込みに成功しました。")
+    except Exception as e:
+        print("CSVファイルの読み込み中にエラーが発生しました:", e)
+        exit()
+
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        print(f"エラー: 以下の必要なカラムがCSVファイルに見つかりません: {missing_columns}")
+        exit()
     else:
-        return "10代"  # パターンに合わない場合
+        print("全ての必要なカラムが見つかりました。")
+
+    print("最初の5件のコメントを表示します:")
+    print(df[required_columns].head())
+    return df
 
 
-def sort_key(age_group):
-    """
-    年代グループをソートするためのキーを生成します。
+# 設定
+csv_file = "ozmall_reviews.csv"
+required_columns = [
+    "restaurant_name",
+    "user_name",
+    "age_gender",
+    "usage_count",
+    "date",
+    "purpose",
+    "overall_score",
+    "plan_score",
+    "atmosphere_score",
+    "food_score",
+    "cost_performance_score",
+    "service_score",
+    "plan_menu",
+    "comment_food_drink",  # 口コミのカラム名
+]
+col_name = "comment_food_drink"  # 口コミのカラム名
+sizzle_word_file = "sizzle_words.txt"  # シズルワードリストのファイル名
+output_dir = "matched_reviews_by_sizzle"
 
-    Args:
-        age_group (str): 例 "20代前半"
+# CSVからコメントを読み込む
+df = load_reviews(csv_file, required_columns)
 
-    Returns:
-        tuple: (年代の数値, 半期の順序)
-    """
-    match = re.match(r"(\d+)代(前半|後半)", age_group)
-    if match:
-        decade = int(match.group(1))
-        half = 0 if match.group(2) == "前半" else 1
-        return (decade, half)
-    else:
-        return (999, 0)  # パターンに合わない場合は最後に配置
+# MeCabの初期化
+try:
+    mecab = MeCab.Tagger(
+        '-d "C:/Program Files (x86)/MeCab/dic/ipadic" -u "C:/Program Files (x86)/MeCab/dic/NEologd/NEologd.20200910-u.dic"'
+    )
+    print("MeCabの初期化に成功しました。")
+except Exception as e:
+    print("MeCabの初期化中にエラーが発生しました:", e)
+    exit()
 
+# シズルワードリストの読み込み
+sizzle_words = load_sizzle_words(sizzle_word_file, mecab)
 
-# 全コメントから単語を抽出
-MAX_NUM = 50
-all_tokens = []
-for idx, comment in enumerate(df[col_name]):
+# シズルワードごとのマッチした口コミを保存する辞書を初期化
+matched_comments_dict = defaultdict(list)
+for sizzle in sizzle_words:
+    matched_comments_dict[sizzle["word"]] = []
+
+# 全コメントからマッチする口コミを抽出
+for idx, row in df.iterrows():
+    comment = row[col_name]
     if isinstance(comment, str):
-        tokens = tokenize(comment)
-        all_tokens.extend(tokens)
+        tokens = tokenize(comment, mecab)
+
+        for sizzle in sizzle_words:
+            sizzle_word = sizzle["word"]
+            sizzle_tokens = sizzle["tokens"]
+            sizzle_len = len(sizzle_tokens)
+            if sizzle_len == 0:
+                continue
+            # スライディングウィンドウでマッチング
+            for i in range(len(tokens) - sizzle_len + 1):
+                if tokens[i : i + sizzle_len] == sizzle_tokens:
+                    # 必要なカラムを抽出
+                    matched_row = row[required_columns].to_dict()
+                    matched_comments_dict[sizzle_word].append(matched_row)
+                    break  # このシズルワードでマッチしたら次のシズルワードへ
+
+        # 形態素解析でマッチしなかった場合、部分一致でマッチング
+        # これにより、辞書に存在しないシズルワードも検出可能
+        for sizzle in sizzle_words:
+            sizzle_word = sizzle["word"]
+            # 既にマッチ済みの場合はスキップ
+            if row[col_name] in matched_comments_dict[sizzle_word]:
+                continue
+            # トークン化でマッチしなかったシズルワードを部分一致で検出
+            if sizzle["tokens"] != tokens and sizzle_word in comment:
+                matched_row = row[required_columns].to_dict()
+                matched_comments_dict[sizzle_word].append(matched_row)
     else:
         print(f"コメントが文字列ではありません: インデックス {idx}, 内容: {comment}")
 
-print(f"\n全コメントから抽出された総単語数: {len(all_tokens)}")
+# マッチした口コミの総数を表示
+total_matched = sum(len(comments) for comments in matched_comments_dict.values())
+print(f"\nシズルワードを含む口コミの総数: {total_matched}")
 
-# 形態素解析結果をDataFrameに変換
-morph_df = pd.DataFrame(all_morphs)
+# 出力ディレクトリを作成
+os.makedirs(output_dir, exist_ok=True)
 
-# CSVに保存
-morph_csv_filename = "morphological_analysis.csv"
-try:
-    morph_df.to_csv(morph_csv_filename, index=False, encoding="utf-8-sig")
-    print(f"形態素解析結果を '{morph_csv_filename}' に保存しました。")
-except Exception as e:
-    print(f"形態素解析結果の保存中にエラーが発生しました: {e}")
+# シズルワードごとの口コミを個別のCSVファイルに保存
+for sizzle_word, comments in matched_comments_dict.items():
+    if comments:
+        # ファイル名にシズルワードを使用する場合、ファイル名に使えない文字を置換
+        safe_sizzle_word = re.sub(r'[\\/*?:"<>|]', "_", sizzle_word)
+        filename = os.path.join(output_dir, f"matched_reviews_{safe_sizzle_word}.csv")
+        matched_df = pd.DataFrame(comments)
+        try:
+            matched_df.to_csv(filename, index=False, encoding="utf-8-sig")
+            print(f"シズルワード '{sizzle_word}' を含む口コミを '{filename}' に保存しました。")
+        except Exception as e:
+            print(f"シズルワード '{sizzle_word}' の口コミ保存中にエラーが発生しました: {e}")
+    else:
+        print(f"シズルワード '{sizzle_word}' を含む口コミはありませんでした。")
 
 exit()
 
