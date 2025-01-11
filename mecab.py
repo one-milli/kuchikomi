@@ -77,6 +77,8 @@ def load_reviews(csv_path, required_columns):
     try:
         df = pd.read_csv(csv_path)
         print("CSVファイルの読み込みに成功しました。")
+    except UnicodeDecodeError:
+        df = pd.read_csv(csv_path, encoding="cp932")  # 日本語Windows環境の場合
     except Exception as e:
         print("CSVファイルの読み込み中にエラーが発生しました:", e)
         exit()
@@ -94,7 +96,8 @@ def load_reviews(csv_path, required_columns):
 
 
 # 設定
-csv_file = "ozmall_reviews.csv"
+suffix = "70代"
+csv_file = f"split_reviews_by_age/reviews_{suffix}.csv"
 required_columns = [
     "restaurant_name",
     "user_name",
@@ -113,7 +116,7 @@ required_columns = [
 ]
 col_name = "comment_food_drink"  # 口コミのカラム名
 sizzle_word_file = "sizzle_words.txt"  # シズルワードリストのファイル名
-output_dir = "matched_reviews_by_sizzle"
+output_dir = f"split_reviews_by_age/matched_reviews_by_sizzle_{suffix}"  # 出力ディレクトリ名
 
 # CSVからコメントを読み込む
 df = load_reviews(csv_file, required_columns)
