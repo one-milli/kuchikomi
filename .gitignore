@@ -2,3 +2,7 @@
 *.json
 *.html
 *.zip
+matched_reviews_by_sizzle/*
+noun_reviews_csv/*
+noun_reviews_csv_10/*
+split_reviews_by_age/*

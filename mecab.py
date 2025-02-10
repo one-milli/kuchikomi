@@ -118,7 +118,7 @@ required_columns = [
 col_name = "comment_food_drink"  # 口コミのカラム名
 sizzle_word_file = "sizzle_words.txt"  # シズルワードリストのファイル名
 # output_dir = f"split_reviews_by_age/matched_reviews_by_sizzle_{suffix}"  # 出力ディレクトリ名
-output_dir = f"out"  # 出力ディレクトリ名
+output_dir = "noun_reviews_csv_10"  # 出力ディレクトリ名
 
 # CSVからコメントを読み込む
 df = load_reviews(csv_file, required_columns)
@@ -152,9 +152,14 @@ for idx, row in df.iterrows():
             sizzle_len = len(sizzle_tokens)
             if sizzle_len == 0:
                 continue
+            # リストsizzle_tokensに'*'が含まれている場合は、そのシズルワードは無視
+            if "*" in sizzle_tokens:
+                continue
             # スライディングウィンドウでマッチング
             for i in range(len(tokens) - sizzle_len + 1):
                 if tokens[i : i + sizzle_len] == sizzle_tokens:
+                    # print(f"シズルワード '{sizzle_word}' がマッチしました: インデックス {idx}, 内容: {comment}")
+                    # print(f"マッチしたトークン: {tokens[i:i+sizzle_len]}, {sizzle_tokens}")
                     # 必要なカラムを抽出
                     matched_row = row[required_columns].to_dict()
                     matched_comments_dict[sizzle_word].append(matched_row)
@@ -165,8 +170,6 @@ for idx, row in df.iterrows():
 # マッチした口コミの総数を表示
 total_matched = sum(len(comments) for comments in matched_comments_dict.values())
 print(f"\nシズルワードを含む口コミの総数: {total_matched}")
-
-exit()
 
 # 出力ディレクトリを作成
 os.makedirs(output_dir, exist_ok=True)
