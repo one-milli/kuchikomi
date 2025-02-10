@@ -7,14 +7,23 @@ import requests
 from bs4 import BeautifulSoup
 
 UNKNOWN = "Unknown"
-# MAX_REVIEWS = 100
+MAX_REVIEWS = 10
 
-# 口コミを取得したいレストランのURLリストをファイルから読み込む
-with open("worse_restaurant_urls.csv", "r", encoding="utf-8-sig") as url_file:
-    restaurant_urls = [line.strip().replace("/afternoontea/", "/review/") for line in url_file if line.strip()]
+# CSVファイルからレストランのURLを正しく抽出する
+restaurant_urls = []
+with open("restaurant_urls.csv", "r", encoding="utf-8-sig") as csvfile:
+    reader = csv.reader(csvfile)
+    for row in reader:
+        # 行が2つ以上の要素（レストラン名, URL）を持つ場合
+        if len(row) >= 2:
+            url = row[1].strip().replace("/afternoontea/", "/review/")
+            restaurant_urls.append(url)
+        else:
+            # 要素が1つだけの場合はそのまま利用
+            restaurant_urls.append(row[0].strip().replace("/afternoontea/", "/review/"))
 
 # CSVファイルに保存するための準備
-with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as csvfile:
+with open("ozmall_reviews_10.csv", "w", newline="", encoding="utf-8-sig") as csvfile:
     fieldnames = [
         "restaurant_name",
         "user_name",
@@ -45,7 +54,7 @@ with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as 
             print(f"Processing restaurant URL: {URL}")
             # ページ番号の初期化
             PAGE_NO = 1
-            # REVIEW_COUNT = 0
+            REVIEW_COUNT = 0
             RESTAURANT_NAME = UNKNOWN
             GOTO_NEXT_RESTAURANT = False
             while not GOTO_NEXT_RESTAURANT:
@@ -140,9 +149,9 @@ with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as 
                         # 口コミは新しい順に取得される
                         # 取得したい口コミは2023年10月から2024年10月までのもの
                         date_obj = datetime.strptime(DATE, "%Y/%m/%d")
-                        if date_obj > datetime(2024, 10, 31):
+                        if date_obj > datetime(2024, 12, 31):
                             continue
-                        if date_obj < datetime(2023, 11, 1):
+                        if date_obj < datetime(2024, 1, 1):
                             GOTO_NEXT_RESTAURANT = True
                             break
 
@@ -198,9 +207,7 @@ with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as 
                         comments = review_detail[1].find_all("dl", class_="review__list--box__comment")
                         COMMENT_FOOD_DRINK = COMMENT_ATMOSPHERE_SERVICE = COMMENT_REACTIONS = UNKNOWN
                         for comment in comments:
-                            heading = comment.find("dt", class_="review__list--box__comment--heading").get_text(
-                                strip=True
-                            )
+                            heading = comment.find("dt", class_="review__list--box__comment--heading").get_text(strip=True)
                             content = comment.find("dd").get_text(strip=True)
                             if heading == "食事やドリンクについて":
                                 COMMENT_FOOD_DRINK = content
@@ -232,10 +239,10 @@ with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as 
                                 "comment_reactions": COMMENT_REACTIONS,
                             }
                         )
-                        # REVIEW_COUNT += 1
-                        # if REVIEW_COUNT >= MAX_REVIEWS:
-                        #     GOTO_NEXT_RESTAURANT = True
-                        #     break
+                        REVIEW_COUNT += 1
+                        if REVIEW_COUNT >= MAX_REVIEWS:
+                            GOTO_NEXT_RESTAURANT = True
+                            break
 
                     if GOTO_NEXT_RESTAURANT:
                         break
@@ -259,10 +266,6 @@ with open("worse_ozmall_reviews.csv", "w", newline="", encoding="utf-8-sig") as 
                         GOTO_NEXT_RESTAURANT = True  # pager__countがない場合
                 else:
                     GOTO_NEXT_RESTAURANT = True  # pagerがない場合
-
-                # 100ページ以上の場合、終了
-                # if PAGE_NO > 100:
-                # GOTO_NEXT_RESTAURANT = True
 
                 # サーバーへの負荷を避けるために待機
                 time.sleep(2.5)
