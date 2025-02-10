@@ -116,7 +116,7 @@ required_columns = [
     "comment_food_drink",  # 口コミのカラム名
 ]
 col_name = "comment_food_drink"  # 口コミのカラム名
-sizzle_word_file = "sizzle_1.txt"  # シズルワードリストのファイル名
+sizzle_word_file = "sizzle_words.txt"  # シズルワードリストのファイル名
 # output_dir = f"split_reviews_by_age/matched_reviews_by_sizzle_{suffix}"  # 出力ディレクトリ名
 output_dir = f"out"  # 出力ディレクトリ名
 
@@ -155,9 +155,6 @@ for idx, row in df.iterrows():
             # スライディングウィンドウでマッチング
             for i in range(len(tokens) - sizzle_len + 1):
                 if tokens[i : i + sizzle_len] == sizzle_tokens:
-                    print(comment)
-                    print(tokens)
-                    print(sizzle_tokens)
                     # 必要なカラムを抽出
                     matched_row = row[required_columns].to_dict()
                     matched_comments_dict[sizzle_word].append(matched_row)
