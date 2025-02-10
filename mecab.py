@@ -97,7 +97,8 @@ def load_reviews(csv_path, required_columns):
 
 # 設定
 suffix = "70代"
-csv_file = f"split_reviews_by_age/reviews_{suffix}.csv"
+# csv_file = f"split_reviews_by_age/reviews_{suffix}.csv"
+csv_file = f"ozmall_reviews_10.csv"
 required_columns = [
     "restaurant_name",
     "user_name",
@@ -115,8 +116,9 @@ required_columns = [
     "comment_food_drink",  # 口コミのカラム名
 ]
 col_name = "comment_food_drink"  # 口コミのカラム名
-sizzle_word_file = "sizzle_words.txt"  # シズルワードリストのファイル名
-output_dir = f"split_reviews_by_age/matched_reviews_by_sizzle_{suffix}"  # 出力ディレクトリ名
+sizzle_word_file = "sizzle_1.txt"  # シズルワードリストのファイル名
+# output_dir = f"split_reviews_by_age/matched_reviews_by_sizzle_{suffix}"  # 出力ディレクトリ名
+output_dir = f"out"  # 出力ディレクトリ名
 
 # CSVからコメントを読み込む
 df = load_reviews(csv_file, required_columns)
@@ -126,7 +128,6 @@ try:
     mecab = MeCab.Tagger(
         '-d "C:/Program Files (x86)/MeCab/dic/ipadic" -u "C:/Program Files (x86)/MeCab/dic/NEologd/NEologd.20200910-u.dic"'
     )
-    print("MeCabの初期化に成功しました。")
 except Exception as e:
     print("MeCabの初期化中にエラーが発生しました:", e)
     exit()
@@ -154,28 +155,21 @@ for idx, row in df.iterrows():
             # スライディングウィンドウでマッチング
             for i in range(len(tokens) - sizzle_len + 1):
                 if tokens[i : i + sizzle_len] == sizzle_tokens:
+                    print(comment)
+                    print(tokens)
+                    print(sizzle_tokens)
                     # 必要なカラムを抽出
                     matched_row = row[required_columns].to_dict()
                     matched_comments_dict[sizzle_word].append(matched_row)
                     break  # このシズルワードでマッチしたら次のシズルワードへ
-
-        # 形態素解析でマッチしなかった場合、部分一致でマッチング
-        # これにより、辞書に存在しないシズルワードも検出可能
-        for sizzle in sizzle_words:
-            sizzle_word = sizzle["word"]
-            # 既にマッチ済みの場合はスキップ
-            if row[col_name] in matched_comments_dict[sizzle_word]:
-                continue
-            # トークン化でマッチしなかったシズルワードを部分一致で検出
-            if sizzle["tokens"] != tokens and sizzle_word in comment:
-                matched_row = row[required_columns].to_dict()
-                matched_comments_dict[sizzle_word].append(matched_row)
     else:
         print(f"コメントが文字列ではありません: インデックス {idx}, 内容: {comment}")
 
 # マッチした口コミの総数を表示
 total_matched = sum(len(comments) for comments in matched_comments_dict.values())
 print(f"\nシズルワードを含む口コミの総数: {total_matched}")
+
+exit()
 
 # 出力ディレクトリを作成
 os.makedirs(output_dir, exist_ok=True)
